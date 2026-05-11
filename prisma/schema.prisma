@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id               String    @id @default(cuid())
+  name             String
+  email            String    @unique
+  password         String
+  avatar           String?
+  role             String    @default("admin")
+  sentMessages     Message[] @relation("Sender")
+  receivedMessages Message[] @relation("Receiver")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([email])
+}
+
+model Member {
+  id         String       @id @default(cuid())
+  firstName  String
+  lastName   String
+  otherNames String?
+  dob        DateTime
+  sex        Sex
+  rank       String
+  contact    String
+  department Department
+  division   String
+  district   String
+  station    String
+  status     MemberStatus @default(ACTIVE)
+  photo      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([lastName, firstName])
+  @@index([district])
+  @@index([division])
+  @@index([station])
+  @@index([status])
+  @@index([contact])
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  senderId      String
+  receiverId    String
+  text          String?
+  fileUrl       String?
+  fileType      FileType?
+  fileName      String?
+  voiceUrl      String?
+  voiceDuration Int?
+  readAt        DateTime?
+  sender        Admin     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver      Admin     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, senderId])
+  @@index([createdAt])
+}
+
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum MemberStatus {
+  ACTIVE
+  SICK
+  INJURED
+  MATERNITY_LEAVE
+  RETIRED
+}
+
+enum Department {
+  FPU
+  MTTD
+  PID
+  CID
+  CRIMINAL_INVESTIGATIONS
+  DOMESTIC_VIOLENCE
+  NARCOTICS
+  MARINE_POLICE
+  AIRPORT_POLICE
+  VIP_PROTECTION
+  GENERAL_DUTIES
+  ADMINISTRATION
+}
+
+enum FileType {
+  PDF
+  IMAGE
+  VOICE
+}
