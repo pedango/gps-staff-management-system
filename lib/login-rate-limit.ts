@@ -1,7 +1,28 @@
 import { getRedis } from "@/lib/redis";
+import {
+  LOGIN_RATE_LIMIT_MAX_ATTEMPTS as MAX_ATTEMPTS,
+  LOGIN_RATE_LIMIT_WINDOW_SECONDS as WINDOW_SECONDS,
+} from "@/lib/login-rate-constants";
 
-const WINDOW_SECONDS = 15 * 60;
-const MAX_ATTEMPTS = 5;
+/** Read-only check for middleware / auth route (does not increment failures). */
+export async function peekLoginBlocked(ip: string): Promise<boolean> {
+  const redis = getRedis();
+  const key = `login:rl:${ip}`;
+  if (redis) {
+    const raw = await redis.get<string | number>(key);
+    const count = typeof raw === "string" ? Number.parseInt(raw, 10) : raw ?? 0;
+    return Number.isFinite(count) && count >= MAX_ATTEMPTS;
+  }
+  const store = memoryStore();
+  const entry = store.get(ip);
+  if (!entry) {
+    return false;
+  }
+  if (entry.resetAt <= Date.now()) {
+    return false;
+  }
+  return entry.count >= MAX_ATTEMPTS;
+}
 
 export type LoginRateLimitHandle = {
   recordFailure: () => Promise<void>;

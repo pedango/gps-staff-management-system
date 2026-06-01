@@ -25,6 +25,15 @@ export async function GET(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  await prisma.message.updateMany({
+    where: {
+      senderId: peerId,
+      receiverId: selfId,
+      readAt: null,
+    },
+    data: { readAt: new Date() },
+  });
+
   const messages = await prisma.message.findMany({
     where: {
       OR: [

@@ -6,6 +6,8 @@ import { loginSchema } from "@/lib/validations/auth.schema";
 import { checkLoginRateLimit } from "@/lib/login-rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  basePath: "/api/auth",
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   trustHost: true,
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
   pages: { signIn: "/login" },

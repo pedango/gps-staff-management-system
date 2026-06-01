@@ -12,10 +12,17 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
+/blob-report/
 
-# next.js
+# next.js  build output
 /.next/
 /out/
+
+# OS files
+.DS_Store
+Thumbs.db
 
 # production
 /build
@@ -24,14 +31,17 @@
 .DS_Store
 *.pem
 
-# debug
+# debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.production
+.env.*.local
 
 # vercel
 .vercel
@@ -39,3 +49,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Prisma generated client (regenerated on deploy)
+prisma/generated/

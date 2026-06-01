@@ -8,18 +8,72 @@ datasource db {
 }
 
 model Admin {
-  id               String    @id @default(cuid())
+  id               String            @id @default(cuid())
   name             String
-  email            String    @unique
+  email            String            @unique
   password         String
   avatar           String?
-  role             String    @default("admin")
-  sentMessages     Message[] @relation("Sender")
-  receivedMessages Message[] @relation("Receiver")
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  role             String            @default("admin")
+  sentMessages     Message[]         @relation("Sender")
+  receivedMessages Message[]         @relation("Receiver")
+  hostedCalls      CallSession[]     @relation("CallHost")
+  callParticipants CallParticipant[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@index([email])
+}
+
+model CallSession {
+  id             String            @id @default(cuid())
+  hostId         String
+  conversationId String?
+  callType       CallTypeEnum
+  status         CallSessionStatus @default(ACTIVE)
+  host           Admin             @relation("CallHost", fields: [hostId], references: [id], onDelete: Cascade)
+  participants   CallParticipant[]
+  createdAt      DateTime          @default(now())
+  endedAt        DateTime?
+
+  @@index([status])
+  @@index([hostId])
+}
+
+model CallParticipant {
+  id        String      @id @default(cuid())
+  sessionId String
+  adminId   String
+  joinedAt  DateTime    @default(now())
+  leftAt    DateTime?
+  session   CallSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  admin     Admin       @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, adminId])
+  @@index([sessionId])
+  @@index([adminId])
+}
+
+enum CallTypeEnum {
+  AUDIO
+  VIDEO
+}
+
+enum CallSessionStatus {
+  ACTIVE
+  ENDED
+}
+
+/** Singleton row (id = "default") — regional / system preferences editable by admins. */
+model SystemConfig {
+  id                    String   @id @default("default")
+  regionName            String   @default("Eastern North Region")
+  orgName               String   @default("Ghana Police Service")
+  systemTitle           String   @default("Personnel Management System")
+  membersPageSize       Int      @default(20)
+  enableDirectMessaging Boolean  @default(true)
+  requireMemberPhoto    Boolean  @default(false)
+  maintenanceMode       Boolean  @default(false)
+  updatedAt             DateTime @updatedAt
 }
 
 model Member {
@@ -31,7 +85,7 @@ model Member {
   sex        Sex
   rank       String
   contact    String
-  department Department
+  department String
   division   String
   district   String
   station    String
@@ -79,21 +133,6 @@ enum MemberStatus {
   INJURED
   MATERNITY_LEAVE
   RETIRED
-}
-
-enum Department {
-  FPU
-  MTTD
-  PID
-  CID
-  CRIMINAL_INVESTIGATIONS
-  DOMESTIC_VIOLENCE
-  NARCOTICS
-  MARINE_POLICE
-  AIRPORT_POLICE
-  VIP_PROTECTION
-  GENERAL_DUTIES
-  ADMINISTRATION
 }
 
 enum FileType {

@@ -1,8 +1,25 @@
 import PusherClient from "pusher-js";
 
-export function createPusherClient(): PusherClient | null {
+let singleton: PusherClient | null = null;
+
+export function getPusherClient(): PusherClient | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
-  if (!key || !cluster) return null;
-  return new PusherClient(key, { cluster, channelAuthorization: { transport: "ajax" } });
+  if (!key || !cluster) {
+    return null;
+  }
+  if (!singleton) {
+    singleton = new PusherClient(key, {
+      cluster,
+      forceTLS: true,
+      channelAuthorization: {
+        endpoint: "/api/pusher/auth",
+        transport: "ajax",
+      },
+    });
+  }
+  return singleton;
 }

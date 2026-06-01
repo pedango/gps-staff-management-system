@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import type { Department, MemberStatus, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { memberSchema } from "@/lib/validations/member.schema";
 import { buildMemberWhere, type MemberListFilters } from "@/lib/services/member-query";
 import { createMember, findMembers } from "@/lib/repositories/member-repository";
 import { getCached, invalidateMembersListCache, membersListCacheKey, setCached } from "@/lib/redis";
+import { parseMemberPayload } from "@/lib/member-request";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -13,16 +13,18 @@ const SORT_FIELDS = ["lastName", "firstName", "rank", "department", "district", 
 type SortField = (typeof SORT_FIELDS)[number];
 
 function parseFilters(sp: URLSearchParams): MemberListFilters {
-  const statusRaw = sp.get("status");
-  const deptRaw = sp.get("department");
+  const parseList = (value: string | null) =>
+    (value ?? "")
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
   return {
-    name: sp.get("name") ?? undefined,
-    contact: sp.get("contact") ?? undefined,
-    district: sp.get("district") ?? undefined,
-    division: sp.get("division") ?? undefined,
-    station: sp.get("station") ?? undefined,
-    status: statusRaw ? (statusRaw as MemberStatus) : undefined,
-    department: deptRaw ? (deptRaw as Department) : undefined,
+    q: sp.get("q") ?? undefined,
+    statuses: parseList(sp.get("status")),
+    departments: parseList(sp.get("department")),
+    divisions: parseList(sp.get("division")),
+    districts: parseList(sp.get("district")),
+    stations: parseList(sp.get("station")),
   };
 }
 
@@ -75,10 +77,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const json: unknown = await req.json();
-  const parsed = memberSchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  const parsed = await parseMemberPayload(req);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 
   const data = parsed.data;

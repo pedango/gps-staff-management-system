@@ -23,6 +23,18 @@ export function formatDateTime(d: Date | string): string {
   return format(date, "dd MMM yyyy, HH:mm");
 }
 
+/** Full date label for message thread day separators. */
+export function formatMessageDayLabel(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return format(date, "EEEE, d MMMM yyyy");
+}
+
+/** Short time for in-bubble stamps (WhatsApp-style). */
+export function formatMessageTime(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return format(date, "HH:mm");
+}
+
 export function calculateAge(dob: Date | string): number {
   const date = typeof dob === "string" ? new Date(dob) : dob;
   return differenceInYears(new Date(), date);

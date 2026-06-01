@@ -3,17 +3,26 @@ import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const isLoggedIn = Boolean(req.auth);
-  const isAuthPage = req.nextUrl.pathname.startsWith("/login");
+  const isLoginPage = req.nextUrl.pathname.startsWith("/login");
+  const isPublicAuthPage =
+    req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/forgot-password");
 
-  if (!isLoggedIn && !isAuthPage) {
+  if (!isLoggedIn && !isPublicAuthPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
-  if (isLoggedIn && isAuthPage) {
+  if (isLoggedIn && isLoginPage) {
     return NextResponse.redirect(new URL("/", req.url));
   }
   return NextResponse.next();
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|logo.png).*)"],
+  matcher: [
+    /*
+     * Skip auth for Next internals, API routes, and static files in /public
+     * (e.g. logos on /login) — otherwise unauthenticated requests for /foo.png
+     * get redirected to /login and images never load.
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|eot)$).*)",
+  ],
 };

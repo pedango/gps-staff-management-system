@@ -1,50 +1,70 @@
-import type { Department, MemberStatus, Prisma } from "@prisma/client";
+import type { MemberStatus, Prisma } from "@prisma/client";
+import { MEMBER_STATUS_VALUES } from "@/lib/member-filter-options";
 
 export type MemberListFilters = {
-  name?: string;
-  contact?: string;
-  district?: string;
-  division?: string;
-  station?: string;
-  status?: MemberStatus;
-  department?: Department;
+  q?: string;
+  statuses?: string[];
+  departments?: string[];
+  divisions?: string[];
+  districts?: string[];
+  stations?: string[];
 };
 
 export function buildMemberWhere(filters: MemberListFilters): Prisma.MemberWhereInput {
-  const name = filters.name?.trim();
-  const contact = filters.contact?.trim();
-  const district = filters.district?.trim();
-  const division = filters.division?.trim();
-  const station = filters.station?.trim();
+  const q = filters.q?.trim();
+  const statuses = (filters.statuses ?? []).map((v) => v.trim()).filter(Boolean);
+  const departments = (filters.departments ?? []).map((v) => v.trim()).filter(Boolean);
+  const divisions = (filters.divisions ?? []).map((v) => v.trim()).filter(Boolean);
+  const districts = (filters.districts ?? []).map((v) => v.trim()).filter(Boolean);
+  const stations = (filters.stations ?? []).map((v) => v.trim()).filter(Boolean);
+  const validStatuses = statuses.filter((s): s is MemberStatus =>
+    (MEMBER_STATUS_VALUES as readonly string[]).includes(s),
+  );
+  const qStatusCandidates: MemberStatus[] = q
+    ? MEMBER_STATUS_VALUES.filter((s) => s.toLowerCase().includes(q.toLowerCase().replace(/\s+/g, "_")))
+    : [];
 
   const and: Prisma.MemberWhereInput[] = [];
 
-  if (name) {
+  if (q) {
     and.push({
       OR: [
-        { firstName: { contains: name, mode: "insensitive" } },
-        { lastName: { contains: name, mode: "insensitive" } },
-        { otherNames: { contains: name, mode: "insensitive" } },
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { otherNames: { contains: q, mode: "insensitive" } },
+        { rank: { contains: q, mode: "insensitive" } },
+        { station: { contains: q, mode: "insensitive" } },
+        { district: { contains: q, mode: "insensitive" } },
+        { division: { contains: q, mode: "insensitive" } },
+        { department: { contains: q, mode: "insensitive" } },
+        { contact: { contains: q, mode: "insensitive" } },
+        ...(qStatusCandidates.length > 0 ? [{ status: { in: qStatusCandidates } }] : []),
+        {
+          AND: [
+            { firstName: { contains: q.split(" ")[0] ?? q, mode: "insensitive" } },
+            { lastName: { contains: q.split(" ").slice(1).join(" ") || q, mode: "insensitive" } },
+          ],
+        },
       ],
     });
   }
-  if (contact) {
-    and.push({ contact: { contains: contact, mode: "insensitive" } });
+  if (statuses.length > 0 && validStatuses.length === 0) {
+    and.push({ id: { equals: "__none__" } });
   }
-  if (district) {
-    and.push({ district: { contains: district, mode: "insensitive" } });
+  if (validStatuses.length > 0) {
+    and.push({ status: { in: validStatuses } });
   }
-  if (division) {
-    and.push({ division: { contains: division, mode: "insensitive" } });
+  if (departments.length > 0) {
+    and.push({ department: { in: departments } });
   }
-  if (station) {
-    and.push({ station: { contains: station, mode: "insensitive" } });
+  if (divisions.length > 0) {
+    and.push({ division: { in: divisions } });
   }
-  if (filters.status) {
-    and.push({ status: filters.status });
+  if (districts.length > 0) {
+    and.push({ district: { in: districts } });
   }
-  if (filters.department) {
-    and.push({ department: filters.department });
+  if (stations.length > 0) {
+    and.push({ station: { in: stations } });
   }
 
   if (and.length === 0) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { memberSchema } from "@/lib/validations/member.schema";
+import { deleteCloudinaryBySecureUrl } from "@/lib/cloudinary";
+import { parseMemberPayload } from "@/lib/member-request";
 import { deleteMember, findMemberById, updateMember } from "@/lib/repositories/member-repository";
 import { invalidateMembersListCache } from "@/lib/redis";
 
@@ -29,12 +30,15 @@ export async function PUT(req: Request, ctx: RouteContext) {
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const json: unknown = await req.json();
-  const parsed = memberSchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const parsed = await parseMemberPayload(req);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
   const data = parsed.data;
+
+  const previousPhoto = existing.photo;
+  const nextPhoto = data.photo ?? null;
   const member = await updateMember(id, {
     firstName: data.firstName,
     lastName: data.lastName,
@@ -48,8 +52,17 @@ export async function PUT(req: Request, ctx: RouteContext) {
     district: data.district,
     station: data.station,
     status: data.status,
-    photo: data.photo,
+    photo: nextPhoto,
   });
+
+  if (previousPhoto && nextPhoto && previousPhoto !== nextPhoto) {
+    try {
+      await deleteCloudinaryBySecureUrl(previousPhoto);
+    } catch {
+      // best-effort cleanup; member record already updated
+    }
+  }
+
   await invalidateMembersListCache();
   return NextResponse.json(member);
 }
@@ -65,6 +78,11 @@ export async function DELETE(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   await deleteMember(id);
+  try {
+    await deleteCloudinaryBySecureUrl(existing.photo);
+  } catch {
+    // best-effort
+  }
   await invalidateMembersListCache();
   return NextResponse.json({ ok: true });
 }
