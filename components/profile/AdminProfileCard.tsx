@@ -42,7 +42,7 @@ export function AdminProfileCard({ name, email, createdAt, updatedAt, totalMembe
 
       <section className="profile-identity">
         <h1 className="profile-name">{name}</h1>
-        <span className="profile-role-badge">SYSTEM ADMINISTRATOR</span>
+        <span className="profile-role-badge">SYSTEM OPERATOR</span>
         <p className="profile-region">Eastern North Region</p>
       </section>
 
@@ -56,7 +56,7 @@ export function AdminProfileCard({ name, email, createdAt, updatedAt, totalMembe
           <div className="profile-stat-label">Admins</div>
         </div>
         <div className="profile-stat profile-stat-divider">
-          <div className="profile-stat-value">EN Region</div>
+          <div className="profile-stat-value">Eastern North</div>
           <div className="profile-stat-label">Region</div>
         </div>
       </div>
@@ -65,7 +65,7 @@ export function AdminProfileCard({ name, email, createdAt, updatedAt, totalMembe
         <ProfileInfoRow label="Email" value={email} />
         <ProfileInfoRow label="Date Joined" value={formatDisplayDate(createdAt)} />
         <ProfileInfoRow label="Last Login" value={formatLastActivity(updatedAt)} />
-        <ProfileInfoRow label="Access Level" value="Full Administrator" />
+        <ProfileInfoRow label="Access Level" value="Staff Officer" />
         <ProfileInfoRow
           label="Status"
           valueNode={
