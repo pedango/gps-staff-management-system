@@ -4,7 +4,7 @@ import {
   LOGIN_RATE_LIMIT_WINDOW_SECONDS as WINDOW_SECONDS,
 } from "@/lib/login-rate-constants";
 
-/** Read-only check for middleware / auth route (does not increment failures). */
+/** Read-only check for proxy / auth route (does not increment failures). */
 export async function peekLoginBlocked(ip: string): Promise<boolean> {
   const redis = getRedis();
   const key = `login:rl:${ip}`;
