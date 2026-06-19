@@ -19,10 +19,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DmCallButtons } from "@/components/dm/DmCallButtons";
 import { LiveKitCall } from "@/components/dm/LiveKitCall";
 import { DmComposeBar } from "@/components/dm/DmComposeBar";
-import { GroupCallOverlay } from "@/components/dm/GroupCallOverlay";
 import { IncomingCallModal } from "@/components/dm/IncomingCallModal";
 import { WavePlayer } from "@/components/dm/WavePlayer";
-import { useCallSession } from "@/hooks/useCallSession";
+import { acquireDmChannel, releaseDmChannel } from "@/lib/pusher-channel";
+import { emitCallSignal } from "@/lib/webrtc/emit-call-signal";
+import { DM_CALL_EVENTS, type CallInvitePayload, type CallType } from "@/lib/webrtc/call-events";
+import { getPusherClient } from "@/lib/pusher-client";
 import { TYPE_CAPTION, TYPE_MONO } from "@/lib/typography";
 import { cn } from "@/lib/utils/cn";
 
@@ -48,8 +50,6 @@ async function uploadFile(file: File): Promise<{ url: string; fileType: "PDF" | 
 export function DmThreadClient({
   selfId,
   selfName,
-  selfEmail,
-  selfAvatar,
   peer,
   conversationId,
 }: {
@@ -67,16 +67,95 @@ export function DmThreadClient({
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
-  const [liveCall, setLiveCall] = useState<"audio" | "video" | null>(null);
+  const [liveCall, setLiveCall] = useState<CallType | null>(null);
+  const [incoming, setIncoming] = useState<{ type: CallType; fromName: string } | null>(null);
 
-  const call = useCallSession({
-    conversationId,
-    selfId,
-    selfName,
-    selfEmail,
-    selfAvatar,
-    peerId: peer.id,
-  });
+  const liveCallRef = useRef<CallType | null>(null);
+  liveCallRef.current = liveCall;
+
+  const callsEnabled = Boolean(getPusherClient());
+
+  // Outgoing: open the LiveKit room locally and ring the peer over the DM channel.
+  const startCall = useCallback(
+    (type: CallType) => {
+      setLiveCall(type);
+      void emitCallSignal(conversationId, DM_CALL_EVENTS.INVITE, {
+        callId: conversationId,
+        sessionId: conversationId,
+        type,
+        fromName: selfName,
+      }).catch(() => undefined);
+    },
+    [conversationId, selfName],
+  );
+
+  // Hang up locally and tell the peer to stop ringing / that we left.
+  const closeCall = useCallback(() => {
+    setLiveCall(null);
+    void emitCallSignal(conversationId, DM_CALL_EVENTS.END, { callId: conversationId }).catch(() => undefined);
+  }, [conversationId]);
+
+  const acceptIncoming = useCallback(() => {
+    setIncoming((cur) => {
+      if (cur) {
+        setLiveCall(cur.type);
+      }
+      return null;
+    });
+  }, []);
+
+  const declineIncoming = useCallback(() => {
+    setIncoming(null);
+    void emitCallSignal(conversationId, DM_CALL_EVENTS.DECLINE, { callId: conversationId }).catch(() => undefined);
+  }, [conversationId]);
+
+  // Incoming: listen for ring / cancel signals on the DM channel.
+  useEffect(() => {
+    const channel = acquireDmChannel(conversationId);
+    if (!channel) {
+      return;
+    }
+    const onInvite = (payload: CallInvitePayload) => {
+      if (payload.fromId === selfId || liveCallRef.current) {
+        return;
+      }
+      setIncoming({ type: payload.type, fromName: payload.fromName });
+    };
+    const onCancel = (payload: { fromId?: string }) => {
+      if (payload.fromId === selfId) {
+        return;
+      }
+      setIncoming(null);
+    };
+    const onDecline = (payload: { fromId?: string }) => {
+      if (payload.fromId === selfId) {
+        return;
+      }
+      setIncoming(null);
+      if (liveCallRef.current) {
+        setLiveCall(null);
+        toast.error("Call declined");
+      }
+    };
+    channel.bind(DM_CALL_EVENTS.INVITE, onInvite);
+    channel.bind(DM_CALL_EVENTS.END, onCancel);
+    channel.bind(DM_CALL_EVENTS.DECLINE, onDecline);
+    return () => {
+      channel.unbind(DM_CALL_EVENTS.INVITE, onInvite);
+      channel.unbind(DM_CALL_EVENTS.END, onCancel);
+      channel.unbind(DM_CALL_EVENTS.DECLINE, onDecline);
+      releaseDmChannel(conversationId);
+    };
+  }, [conversationId, selfId]);
+
+  // Stop ringing automatically if the call goes unanswered.
+  useEffect(() => {
+    if (!incoming) {
+      return;
+    }
+    const timer = window.setTimeout(() => setIncoming(null), 45000);
+    return () => window.clearTimeout(timer);
+  }, [incoming]);
 
   const queryKey = useMemo(() => ["messages", conversationId] as const, [conversationId]);
 
@@ -246,9 +325,9 @@ export function DmThreadClient({
           </div>
         </div>
         <DmCallButtons
-          disabled={liveCall !== null}
-          onAudioCall={() => setLiveCall("audio")}
-          onVideoCall={() => setLiveCall("video")}
+          disabled={!callsEnabled || liveCall !== null}
+          onAudioCall={() => startCall("audio")}
+          onVideoCall={() => startCall("video")}
         />
       </header>
 
@@ -324,43 +403,18 @@ export function DmThreadClient({
           room={conversationId}
           callType={liveCall}
           peerName={peer.name}
-          onClose={() => setLiveCall(null)}
+          onClose={closeCall}
         />
       ) : null}
 
       <IncomingCallModal
-        open={call.phase === "incoming"}
-        callerName={call.incomingFromName ?? peer.name}
+        open={incoming !== null}
+        callerName={incoming?.fromName ?? peer.name}
         callerEmail={peer.email}
         callerAvatar={peer.avatar}
-        callType={call.callType ?? "audio"}
-        onAccept={() => {
-          void call.acceptCall().catch((e) => {
-            toast.error(e instanceof Error ? e.message : "Could not join call");
-          });
-        }}
-        onDecline={() => void call.declineCall()}
-      />
-
-      <GroupCallOverlay
-        open={call.inCallUi}
-        phase={call.phase}
-        callType={call.callType ?? "audio"}
-        shareUrl={call.shareUrl}
-        participantCount={call.participantCount}
-        participants={call.participants}
-        remotePeers={call.remotePeers}
-        focusedPeer={call.focusedPeer}
-        focusedParticipantId={call.focusedParticipantId}
-        setFocusedParticipantId={call.setFocusedParticipantId}
-        localStream={call.localStream}
-        isMuted={call.isMuted}
-        isCameraOff={call.isCameraOff}
-        self={call.self}
-        peerLabel={peer.name}
-        onEndCall={() => void call.endCall()}
-        onToggleMute={call.toggleMute}
-        onToggleCamera={call.toggleCamera}
+        callType={incoming?.type ?? "audio"}
+        onAccept={acceptIncoming}
+        onDecline={declineIncoming}
       />
 
       <Dialog open={Boolean(lightbox)} onOpenChange={(o) => !o && setLightbox(null)}>

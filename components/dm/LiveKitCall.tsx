@@ -4,12 +4,20 @@ import "@livekit/components-styles";
 
 import { useEffect, useState } from "react";
 import { LiveKitRoom, VideoConference } from "@livekit/components-react";
-import { Loader2, X } from "lucide-react";
+import { ExternalE2EEKeyProvider, Room, type RoomOptions } from "livekit-client";
+import { Loader2, ShieldCheck, X } from "lucide-react";
 
-type TokenResponse = { token: string; url: string };
+type TokenResponse = { token: string; url: string; e2eeKey?: string };
+
+type Connection = {
+  token: string;
+  url: string;
+  room: Room;
+  encrypted: boolean;
+};
 
 export function LiveKitCall({
-  room,
+  room: roomName,
   callType,
   peerName,
   onClose,
@@ -19,43 +27,86 @@ export function LiveKitCall({
   peerName: string;
   onClose: () => void;
 }) {
-  const [conn, setConn] = useState<TokenResponse | null>(null);
+  const [conn, setConn] = useState<Connection | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
+    let createdRoom: Room | null = null;
+    let worker: Worker | null = null;
+
     void (async () => {
       try {
         const res = await fetch("/api/livekit/token", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ room }),
+          body: JSON.stringify({ room: roomName }),
         });
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(data.error ?? "Could not connect to call");
         }
         const data = (await res.json()) as TokenResponse;
-        if (active) {
-          setConn(data);
+
+        // Build the end-to-end encryption context if supported by the browser.
+        let e2ee: RoomOptions["e2ee"] | undefined;
+        if (data.e2eeKey && typeof window !== "undefined" && window.isSecureContext) {
+          try {
+            worker = new Worker(new URL("livekit-client/e2ee-worker", import.meta.url));
+            const keyProvider = new ExternalE2EEKeyProvider();
+            await keyProvider.setKey(data.e2eeKey);
+            e2ee = { keyProvider, worker };
+          } catch {
+            e2ee = undefined;
+          }
         }
+
+        createdRoom = new Room(e2ee ? { e2ee } : {});
+
+        let encrypted = false;
+        if (e2ee) {
+          try {
+            await createdRoom.setE2EEEnabled(true);
+            encrypted = true;
+          } catch {
+            encrypted = false;
+          }
+        }
+
+        if (!active) {
+          await createdRoom.disconnect();
+          worker?.terminate();
+          return;
+        }
+        setConn({ token: data.token, url: data.url, room: createdRoom, encrypted });
       } catch (e) {
         if (active) {
           setError(e instanceof Error ? e.message : "Could not connect to call");
         }
       }
     })();
+
     return () => {
       active = false;
+      void createdRoom?.disconnect();
+      worker?.terminate();
     };
-  }, [room]);
+  }, [roomName]);
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-navy-950" data-lk-theme="default">
       <div className="flex shrink-0 items-center justify-between px-4 py-3 text-white">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{peerName}</p>
-          <p className="text-xs text-white/60">{callType === "video" ? "Video call" : "Voice call"}</p>
+          <div className="flex items-center gap-1.5 text-xs text-white/60">
+            <span>{callType === "video" ? "Video call" : "Voice call"}</span>
+            {conn?.encrypted ? (
+              <span className="inline-flex items-center gap-1 text-emerald-300">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                End-to-end encrypted
+              </span>
+            ) : null}
+          </div>
         </div>
         <button
           type="button"
@@ -86,6 +137,7 @@ export function LiveKitCall({
           </div>
         ) : (
           <LiveKitRoom
+            room={conn.room}
             serverUrl={conn.url}
             token={conn.token}
             connect
