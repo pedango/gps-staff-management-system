@@ -1,17 +1,8 @@
-import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { AccessToken } from "livekit-server-sdk";
 import { auth } from "@/lib/auth";
 import { getPeerId } from "@/lib/conversation";
-
-/**
- * Deterministic per-conversation E2EE passphrase. Both participants derive the
- * same value, it is only ever returned to authenticated conversation members,
- * and it is never sent to LiveKit — so LiveKit cannot decrypt the media.
- */
-function deriveE2eeKey(apiSecret: string, room: string): string {
-  return crypto.createHmac("sha256", apiSecret).update(`livekit-e2ee:${room}`).digest("base64");
-}
+import { deriveE2eeKey } from "@/lib/livekit/e2ee";
 
 export async function POST(req: NextRequest) {
   const session = await auth();

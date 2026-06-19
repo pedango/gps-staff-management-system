@@ -53,6 +53,27 @@ model CallParticipant {
   @@index([adminId])
 }
 
+/**
+ * Server-side proof that a participant enabled end-to-end encryption for a call.
+ * `verified` is true only when the participant proved possession of the exact
+ * conversation E2EE key (its fingerprint matched the server-derived key).
+ */
+model CallEncryptionAudit {
+  id              String   @id @default(cuid())
+  conversationId  String
+  participantId   String
+  participantName String
+  callType        String?
+  encrypted       Boolean  @default(true)
+  keyFingerprint  String
+  verified        Boolean  @default(false)
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
 enum CallTypeEnum {
   AUDIO
   VIDEO

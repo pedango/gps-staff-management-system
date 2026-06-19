@@ -9,6 +9,12 @@ import { Loader2, ShieldCheck, X } from "lucide-react";
 
 type TokenResponse = { token: string; url: string; e2eeKey?: string };
 
+async function sha256Base64(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)));
+}
+
 type Connection = {
   token: string;
   url: string;
@@ -64,10 +70,17 @@ export function LiveKitCall({
         createdRoom = new Room(e2ee ? { e2ee } : {});
 
         let encrypted = false;
-        if (e2ee) {
+        if (e2ee && data.e2eeKey) {
           try {
             await createdRoom.setE2EEEnabled(true);
             encrypted = true;
+            // Report to the server for a verifiable, durable audit record.
+            const keyFingerprint = await sha256Base64(data.e2eeKey);
+            void fetch("/api/livekit/e2ee-confirm", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ room: roomName, keyFingerprint, callType }),
+            }).catch(() => undefined);
           } catch {
             encrypted = false;
           }
