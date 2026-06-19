@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getPeerId } from "@/lib/conversation";
+import { decryptNullable } from "@/lib/crypto/message-encryption";
 import { prisma } from "@/lib/prisma";
 
 type RouteContext = { params: Promise<{ conversationId: string }> };
@@ -49,5 +50,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     },
   });
 
-  return NextResponse.json(messages);
+  const decrypted = messages.map((m) => ({ ...m, text: decryptNullable(m.text) }));
+
+  return NextResponse.json(decrypted);
 }

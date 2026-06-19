@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { FileType } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { getConversationId } from "@/lib/conversation";
+import { encryptNullable } from "@/lib/crypto/message-encryption";
 import { prisma } from "@/lib/prisma";
 import { pusherServer } from "@/lib/pusher";
 import { sendMessageSchema } from "@/lib/validations/message.schema";
@@ -60,7 +61,8 @@ export async function POST(req: Request) {
     data: {
       senderId,
       receiverId,
-      text: prismaText,
+      // Stored encrypted at rest; the DB only ever holds ciphertext.
+      text: encryptNullable(prismaText),
       fileUrl: prismaFileUrl,
       fileType: prismaFileType,
       fileName: prismaFileName,
@@ -73,16 +75,19 @@ export async function POST(req: Request) {
     },
   });
 
+  // Expose plaintext to the app layer (response + realtime); never persist it.
+  const plainMessage = { ...message, text: prismaText };
+
   const conversationId = getConversationId(senderId, receiverId);
   if (pusherServer) {
     await pusherServer.trigger(`private-dm-${conversationId}`, "new-message", {
       message: {
-        ...message,
+        ...plainMessage,
         createdAt: message.createdAt.toISOString(),
         readAt: message.readAt?.toISOString() ?? null,
       },
     });
   }
 
-  return NextResponse.json(message, { status: 201 });
+  return NextResponse.json(plainMessage, { status: 201 });
 }

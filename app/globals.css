@@ -3545,15 +3545,24 @@ textarea:focus-visible {
   }
 }
 
-.dm-sidebar-header {
+.dm-sidebar-header,
+.dm-thread-header {
   display: flex;
-  height: 64px;
+  height: 3.5rem;
   flex-shrink: 0;
   align-items: center;
+  border-bottom: 1px solid #e9ecf3;
+  background: #ffffff;
+}
+
+.dm-sidebar-header {
   justify-content: space-between;
   padding: 0 1.25rem;
-  border-bottom: 1px solid #f3f4f6;
-  border-bottom: 1px solid #e9ecf3;
+}
+
+.dm-thread-header {
+  gap: 0.75rem;
+  padding: 0 1rem;
 }
 
 .dm-sidebar-title {
@@ -3661,8 +3670,10 @@ textarea:focus-visible {
 
 /* —— App shell —— */
 .dm-shell-height {
-  height: calc(100vh - var(--app-header-h));
+  height: calc(100dvh - var(--app-header-h));
+  max-height: calc(100dvh - var(--app-header-h));
   min-height: 0;
+  overflow: hidden;
 }
 
 /* —— Voice / video call UI —— */

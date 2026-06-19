@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getConversationId } from "@/lib/conversation";
+import { decryptNullable } from "@/lib/crypto/message-encryption";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -45,9 +46,9 @@ export async function GET() {
     }
   }
 
-  const conversations = Array.from(latestByPeer.values()).sort(
-    (a, b) => b.last.createdAt.getTime() - a.last.createdAt.getTime(),
-  );
+  const conversations = Array.from(latestByPeer.values())
+    .sort((a, b) => b.last.createdAt.getTime() - a.last.createdAt.getTime())
+    .map((c) => ({ ...c, last: { ...c.last, text: decryptNullable(c.last.text) } }));
 
   return NextResponse.json(conversations);
 }

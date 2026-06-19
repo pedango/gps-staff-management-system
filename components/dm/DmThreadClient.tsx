@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DmCallButtons } from "@/components/dm/DmCallButtons";
+import { LiveKitCall } from "@/components/dm/LiveKitCall";
 import { DmComposeBar } from "@/components/dm/DmComposeBar";
 import { GroupCallOverlay } from "@/components/dm/GroupCallOverlay";
 import { IncomingCallModal } from "@/components/dm/IncomingCallModal";
@@ -66,6 +67,7 @@ export function DmThreadClient({
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [liveCall, setLiveCall] = useState<"audio" | "video" | null>(null);
 
   const call = useCallSession({
     conversationId,
@@ -75,19 +77,6 @@ export function DmThreadClient({
     selfAvatar,
     peerId: peer.id,
   });
-
-  const onStartCall = useCallback(
-    (type: "audio" | "video") => {
-      if (!call.pusherReady) {
-        toast.error("Calls need live messaging. Configure Pusher in your environment.");
-        return;
-      }
-      void call.startCall(type).catch((e) => {
-        toast.error(e instanceof Error ? e.message : "Could not start call");
-      });
-    },
-    [call],
-  );
 
   const queryKey = useMemo(() => ["messages", conversationId] as const, [conversationId]);
 
@@ -240,8 +229,8 @@ export function DmThreadClient({
   );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-navy-100 bg-white px-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="dm-thread-header">
         <Link
           href="/dm"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-navy-600 hover:bg-navy-50 md:hidden"
@@ -257,14 +246,14 @@ export function DmThreadClient({
           </div>
         </div>
         <DmCallButtons
-          disabled={!call.pusherReady || call.phase !== "idle"}
-          onAudioCall={() => onStartCall("audio")}
-          onVideoCall={() => onStartCall("video")}
+          disabled={liveCall !== null}
+          onAudioCall={() => setLiveCall("audio")}
+          onVideoCall={() => setLiveCall("video")}
         />
       </header>
 
       <div
-        className="flex flex-1 flex-col gap-1.5 overflow-y-auto bg-navy-50 px-2 py-2 sm:px-3"
+        className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto bg-navy-50 px-2 py-2 sm:px-3"
         role="log"
         aria-live="polite"
         aria-relevant="additions"
@@ -329,6 +318,15 @@ export function DmThreadClient({
         onVoiceBlob={onVoiceBlob}
         sendDisabled={sendMutation.isPending}
       />
+
+      {liveCall ? (
+        <LiveKitCall
+          room={conversationId}
+          callType={liveCall}
+          peerName={peer.name}
+          onClose={() => setLiveCall(null)}
+        />
+      ) : null}
 
       <IncomingCallModal
         open={call.phase === "incoming"}
