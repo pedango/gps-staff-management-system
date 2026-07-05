@@ -105,10 +105,10 @@ export function DmMessagesShell({ children }: { children: ReactNode }) {
           ) : (
             <EmptyState
               title="No conversations yet"
-              description="Start a new thread from Staff Officers."
+              description="Start a new thread from Senior Police Officers."
               action={
                 <Link href="/system-users" className="app-btn app-btn-gold">
-                  View Staff Officers
+                  View Senior Police Officers
                 </Link>
               }
             />

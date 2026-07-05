@@ -6,8 +6,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, Pencil, RotateCcw, Search, SlidersHorizontal, Trash2, UserPlus, UserRound, X } from "lucide-react";
+import { Eye, Pencil, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, UserPlus, UserRound, X } from "lucide-react";
 import { FilterDropdownTrigger } from "@/components/members/FilterDropdownTrigger";
+import { MemberBulkImportDialog } from "@/components/members/MemberBulkImportDialog";
 import { FilterPickerDialog } from "@/components/members/FilterPickerDialog";
 import { formatFilterTriggerLabel } from "@/lib/filter-trigger-label";
 import {
@@ -173,6 +174,7 @@ export function MembersView() {
   ]);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   const onConfirmDelete = useCallback(async () => {
     if (!deleteId) return;
@@ -245,10 +247,16 @@ export function MembersView() {
         <p className={TYPE_CAPTION}>
           Eastern North Region · <span className="font-medium text-navy-600">{total.toLocaleString()} personnel on record</span>
         </p>
-        <PageActionGold href="/members/add">
-          <UserPlus className="h-4 w-4" aria-hidden />
-          {LABEL_ADD_STAFF}
-        </PageActionGold>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setBulkImportOpen(true)} className="app-btn app-btn-outline">
+            <Upload className="h-4 w-4" aria-hidden />
+            Bulk upload
+          </button>
+          <PageActionGold href="/members/add">
+            <UserPlus className="h-4 w-4" aria-hidden />
+            {LABEL_ADD_STAFF}
+          </PageActionGold>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -564,6 +572,15 @@ export function MembersView() {
           </>
         )}
       </div>
+
+      <MemberBulkImportDialog
+        open={bulkImportOpen}
+        onOpenChange={setBulkImportOpen}
+        onImported={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["members"] });
+          await queryClient.invalidateQueries({ queryKey: ["members-filters"] });
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteId)}

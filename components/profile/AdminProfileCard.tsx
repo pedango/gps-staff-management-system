@@ -65,7 +65,7 @@ export function AdminProfileCard({ name, email, createdAt, updatedAt, totalMembe
         <ProfileInfoRow label="Email" value={email} />
         <ProfileInfoRow label="Date Joined" value={formatDisplayDate(createdAt)} />
         <ProfileInfoRow label="Last Login" value={formatLastActivity(updatedAt)} />
-        <ProfileInfoRow label="Access Level" value="Staff Officer" />
+        <ProfileInfoRow label="Access Level" value="Senior Police Officer (SPO)" />
         <ProfileInfoRow
           label="Status"
           valueNode={

@@ -3,13 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Mail, MessageSquare, Shield } from "lucide-react";
+import { Mail, Shield } from "lucide-react";
 import { formatDisplayDate } from "@/lib/utils/format";
 import type { AdminPublic } from "@/types/admin";
 import { AdminAvatar } from "@/components/ui/AdminAvatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LABEL_STAFF_OFFICERS } from "@/lib/ui-labels";
+import { AdminPeerActions } from "@/components/system-users/AdminPeerActions";
+import { callsAreEnabled, useCallStore } from "@/stores/callStore";
+import { LABEL_SPO, LABEL_STAFF_OFFICERS } from "@/lib/ui-labels";
 import { UI_INFO_BANNER } from "@/lib/ui-classes";
 import { TYPE_MONO } from "@/lib/typography";
 import { cn } from "@/lib/utils/cn";
@@ -28,7 +30,10 @@ type ConversationRow = {
   peer: AdminPublic;
 };
 
-export function AdminsGrid({ selfId }: { selfId: string }) {
+export function AdminsGrid({ selfId, selfName }: { selfId: string; selfName: string }) {
+  const startOutgoingCall = useCallStore((s) => s.startOutgoingCall);
+  const callsEnabled = callsAreEnabled();
+
   const { data, isPending, isError } = useQuery({
     queryKey: ["admins"],
     queryFn: async (): Promise<AdminPublic[]> => {
@@ -68,8 +73,8 @@ export function AdminsGrid({ selfId }: { selfId: string }) {
       ) : (
         <>
           <div className={cn(UI_INFO_BANNER, "app-info-banner--accent")}>
-            Authorised {LABEL_STAFF_OFFICERS.toLowerCase()} for the Eastern North Region. Message any colleague to
-            coordinate personnel operations.
+            Authorised {LABEL_STAFF_OFFICERS.toLowerCase()} for the Eastern North Region. Start an audio or video call
+            with any colleague, or view their profile.
           </div>
           <ul className="app-admin-grid list-none p-0">
             {data.map((admin) => {
@@ -90,7 +95,7 @@ export function AdminsGrid({ selfId }: { selfId: string }) {
                         <h3 className="truncate">{admin.name}</h3>
                         <span className="app-admin-role-chip">
                           <Shield className="h-3 w-3" aria-hidden />
-                          Staff Officer
+                          {LABEL_SPO}
                         </span>
                         <p className="app-admin-card-email truncate">
                           <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -103,10 +108,12 @@ export function AdminsGrid({ selfId }: { selfId: string }) {
                       {isSelf ? (
                         <span className="app-btn app-btn-outline w-full cursor-default opacity-60 sm:w-auto">Your Account</span>
                       ) : (
-                        <Link href={`/dm/${admin.id}`} className="app-btn app-btn-gold w-full sm:w-auto">
-                          <MessageSquare className="h-4 w-4" aria-hidden />
-                          Send Message
-                        </Link>
+                        <AdminPeerActions
+                          messageHref={`/dm/${admin.id}`}
+                          disabled={!callsEnabled}
+                          onAudioCall={() => void startOutgoingCall(admin, "audio", selfId, selfName)}
+                          onVideoCall={() => void startOutgoingCall(admin, "video", selfId, selfName)}
+                        />
                       )}
                     </div>
                   </article>
@@ -150,7 +157,7 @@ export function DmInbox({ selfId: _selfId }: { selfId: string }) {
     return (
       <EmptyState
         title="No conversations yet"
-        description="Start a message from the Staff Officers page."
+        description="Start a message from the Senior Police Officers page."
         action={
           <Link href="/system-users" className="app-btn app-btn-gold">
             View system users

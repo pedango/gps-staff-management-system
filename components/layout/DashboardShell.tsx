@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { GlobalCallHost } from "@/components/calls/GlobalCallHost";
 import { cn } from "@/lib/utils/cn";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -30,6 +31,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         )}
       >
         <Topbar />
+        <GlobalCallHost />
         <main
           id="main-content"
           tabIndex={-1}

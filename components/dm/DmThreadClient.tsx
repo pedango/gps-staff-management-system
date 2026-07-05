@@ -17,16 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DmCallButtons } from "@/components/dm/DmCallButtons";
-import { LiveKitCall } from "@/components/dm/LiveKitCall";
 import { DmComposeBar } from "@/components/dm/DmComposeBar";
-import { IncomingCallModal } from "@/components/dm/IncomingCallModal";
 import { WavePlayer } from "@/components/dm/WavePlayer";
-import { acquireDmChannel, releaseDmChannel } from "@/lib/pusher-channel";
-import { emitCallSignal } from "@/lib/webrtc/emit-call-signal";
-import { DM_CALL_EVENTS, type CallInvitePayload, type CallType } from "@/lib/webrtc/call-events";
-import { getPusherClient } from "@/lib/pusher-client";
 import { TYPE_CAPTION, TYPE_MONO } from "@/lib/typography";
 import { cn } from "@/lib/utils/cn";
+import { callsAreEnabled, useCallStore } from "@/stores/callStore";
 
 type AdminMini = { id: string; name: string; email: string; avatar: string | null };
 
@@ -67,95 +62,10 @@ export function DmThreadClient({
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
-  const [liveCall, setLiveCall] = useState<CallType | null>(null);
-  const [incoming, setIncoming] = useState<{ type: CallType; fromName: string } | null>(null);
 
-  const liveCallRef = useRef<CallType | null>(null);
-  liveCallRef.current = liveCall;
-
-  const callsEnabled = Boolean(getPusherClient());
-
-  // Outgoing: open the LiveKit room locally and ring the peer over the DM channel.
-  const startCall = useCallback(
-    (type: CallType) => {
-      setLiveCall(type);
-      void emitCallSignal(conversationId, DM_CALL_EVENTS.INVITE, {
-        callId: conversationId,
-        sessionId: conversationId,
-        type,
-        fromName: selfName,
-      }).catch(() => undefined);
-    },
-    [conversationId, selfName],
-  );
-
-  // Hang up locally and tell the peer to stop ringing / that we left.
-  const closeCall = useCallback(() => {
-    setLiveCall(null);
-    void emitCallSignal(conversationId, DM_CALL_EVENTS.END, { callId: conversationId }).catch(() => undefined);
-  }, [conversationId]);
-
-  const acceptIncoming = useCallback(() => {
-    setIncoming((cur) => {
-      if (cur) {
-        setLiveCall(cur.type);
-      }
-      return null;
-    });
-  }, []);
-
-  const declineIncoming = useCallback(() => {
-    setIncoming(null);
-    void emitCallSignal(conversationId, DM_CALL_EVENTS.DECLINE, { callId: conversationId }).catch(() => undefined);
-  }, [conversationId]);
-
-  // Incoming: listen for ring / cancel signals on the DM channel.
-  useEffect(() => {
-    const channel = acquireDmChannel(conversationId);
-    if (!channel) {
-      return;
-    }
-    const onInvite = (payload: CallInvitePayload) => {
-      if (payload.fromId === selfId || liveCallRef.current) {
-        return;
-      }
-      setIncoming({ type: payload.type, fromName: payload.fromName });
-    };
-    const onCancel = (payload: { fromId?: string }) => {
-      if (payload.fromId === selfId) {
-        return;
-      }
-      setIncoming(null);
-    };
-    const onDecline = (payload: { fromId?: string }) => {
-      if (payload.fromId === selfId) {
-        return;
-      }
-      setIncoming(null);
-      if (liveCallRef.current) {
-        setLiveCall(null);
-        toast.error("Call declined");
-      }
-    };
-    channel.bind(DM_CALL_EVENTS.INVITE, onInvite);
-    channel.bind(DM_CALL_EVENTS.END, onCancel);
-    channel.bind(DM_CALL_EVENTS.DECLINE, onDecline);
-    return () => {
-      channel.unbind(DM_CALL_EVENTS.INVITE, onInvite);
-      channel.unbind(DM_CALL_EVENTS.END, onCancel);
-      channel.unbind(DM_CALL_EVENTS.DECLINE, onDecline);
-      releaseDmChannel(conversationId);
-    };
-  }, [conversationId, selfId]);
-
-  // Stop ringing automatically if the call goes unanswered.
-  useEffect(() => {
-    if (!incoming) {
-      return;
-    }
-    const timer = window.setTimeout(() => setIncoming(null), 45000);
-    return () => window.clearTimeout(timer);
-  }, [incoming]);
+  const activeCall = useCallStore((s) => s.activeCall);
+  const startOutgoingCall = useCallStore((s) => s.startOutgoingCall);
+  const callsEnabled = callsAreEnabled();
 
   const queryKey = useMemo(() => ["messages", conversationId] as const, [conversationId]);
 
@@ -325,9 +235,9 @@ export function DmThreadClient({
           </div>
         </div>
         <DmCallButtons
-          disabled={!callsEnabled || liveCall !== null}
-          onAudioCall={() => startCall("audio")}
-          onVideoCall={() => startCall("video")}
+          disabled={!callsEnabled || activeCall !== null}
+          onAudioCall={() => void startOutgoingCall(peer, "audio", selfId, selfName)}
+          onVideoCall={() => void startOutgoingCall(peer, "video", selfId, selfName)}
         />
       </header>
 
@@ -396,25 +306,6 @@ export function DmThreadClient({
         onSendText={onSendText}
         onVoiceBlob={onVoiceBlob}
         sendDisabled={sendMutation.isPending}
-      />
-
-      {liveCall ? (
-        <LiveKitCall
-          room={conversationId}
-          callType={liveCall}
-          peerName={peer.name}
-          onClose={closeCall}
-        />
-      ) : null}
-
-      <IncomingCallModal
-        open={incoming !== null}
-        callerName={incoming?.fromName ?? peer.name}
-        callerEmail={peer.email}
-        callerAvatar={peer.avatar}
-        callType={incoming?.type ?? "audio"}
-        onAccept={acceptIncoming}
-        onDecline={declineIncoming}
       />
 
       <Dialog open={Boolean(lightbox)} onOpenChange={(o) => !o && setLightbox(null)}>

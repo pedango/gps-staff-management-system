@@ -12,6 +12,8 @@
     "test:e2e:ui": "playwright test --ui",
     "db:generate": "dotenv -e .env -e .env.local -- prisma generate",
     "db:seed": "dotenv -e .env -e .env.local -- prisma db seed",
+    "db:add-admin": "dotenv -e .env -e .env.local -- tsx scripts/add-admin.ts",
+    "db:import-members": "dotenv -e .env -e .env.local -- tsx scripts/import-members.ts",
     "db:migrate": "dotenv -e .env -e .env.local -- prisma migrate dev",
     "db:push": "dotenv -e .env -e .env.local -- prisma db push",
     "db:studio": "dotenv -e .env -e .env.local -- prisma studio"
@@ -54,6 +56,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "wavesurfer.js": "^7.12.6",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3",
     "zustand": "^5.0.13"
   },

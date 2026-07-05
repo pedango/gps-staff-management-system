@@ -56,7 +56,7 @@ export function pageTitleForPath(pathname: string): string {
 /** Optional subtitle under the top-bar title. */
 export function pageSubtitleForPath(pathname: string): string | null {
   if (pathname === "/system-users" || pathname === "/admins") {
-    return "Authorised staff officers — Eastern North Region";
+    return "Authorised senior police officers (SPO) — Eastern North Region";
   }
   return null;
 }

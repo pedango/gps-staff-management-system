@@ -1,3 +1,5 @@
+"use client";
+
 import { Shield } from "lucide-react";
 import Image from "next/image";
 import { AppLogo } from "@/components/brand/AppLogo";

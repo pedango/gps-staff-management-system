@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   CartesianGrid,
@@ -23,13 +23,14 @@ import {
   Activity,
   BarChart3,
   Building2,
-  Download,
   MessageSquare,
   RefreshCw,
+  Upload,
   UserCheck,
   UserPlus,
   Users,
 } from "lucide-react";
+import { MemberBulkImportDialog } from "@/components/members/MemberBulkImportDialog";
 import { APP_BRAND, LABEL_ADD_STAFF, LABEL_BROWSE_STAFFS, LABEL_STAFF, LABEL_STAFFS } from "@/lib/ui-labels";
 import { dicebearInitialsUrl } from "@/lib/utils/dicebear";
 import { departmentAbbrev, formatDepartmentLabel } from "@/lib/departments";
@@ -68,36 +69,11 @@ function ChartTooltip({
   );
 }
 
-function downloadDashboardCsv(stats: DashboardStatsSerialized) {
-  const lines: string[] = [];
-  lines.push("GPS — PMS dashboard export");
-  lines.push(`Generated,${format(new Date(), "yyyy-MM-dd HH:mm")}`);
-  lines.push("");
-  lines.push("Metric,Value");
-  lines.push(`Total personnel,${stats.totalMembers}`);
-  lines.push(`Active & on duty,${stats.activeMembers}`);
-  lines.push("");
-  lines.push("Department,Count"); 
-  for (const row of stats.byDepartment) {
-    lines.push(`${row.department},${row._count._all}`);
-  }
-  lines.push("");
-  lines.push("Status,Count");
-  for (const row of stats.byStatus) {
-    lines.push(`${row.status},${row._count._all}`);
-  }
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `gps-pms-dashboard-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export function DashboardClient({ initialStats }: DashboardClientProps) {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const [deptFilter, setDeptFilter] = useState<string | "ALL">("ALL");
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const adminName = session?.user?.name ?? "Administrator";
 
   const {
@@ -231,11 +207,11 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
           <button
             type="button"
             className="dash-icon-btn"
-            onClick={() => downloadDashboardCsv(stats)}
-            aria-label="Download report"
-            title="Download report"
+            onClick={() => setBulkImportOpen(true)}
+            aria-label="Bulk upload staff"
+            title="Bulk upload staff"
           >
-            <Download className="h-4 w-4" aria-hidden />
+            <Upload className="h-4 w-4" aria-hidden />
           </button>
         </div>
       </div>
@@ -439,9 +415,9 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
           <MessageSquare className="h-4 w-4" aria-hidden />
           Message Admin
         </Link>
-        <button type="button" className="quick-action-btn" onClick={() => downloadDashboardCsv(stats)}>
-          <Download className="h-4 w-4" aria-hidden />
-          Download Report
+        <button type="button" className="quick-action-btn" onClick={() => setBulkImportOpen(true)}>
+          <Upload className="h-4 w-4" aria-hidden />
+          Bulk Upload Staff
         </button>
       </div>
 
@@ -509,6 +485,16 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
           </div>
         )}
       </section>
+
+      <MemberBulkImportDialog
+        open={bulkImportOpen}
+        onOpenChange={setBulkImportOpen}
+        onImported={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+          await queryClient.invalidateQueries({ queryKey: ["members"] });
+          await queryClient.invalidateQueries({ queryKey: ["members-filters"] });
+        }}
+      />
 
       <p className="dash-audit-note">
         Sensitive sign-ins and administrative changes are logged for audit. Access is subject to Ghana Police Service
