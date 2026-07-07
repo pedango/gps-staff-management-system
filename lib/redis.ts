@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import { PerformanceConfig } from "@/src/config/performance";
 
 function isConfigured(): boolean {
   return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
@@ -24,7 +25,11 @@ export async function getCached<T>(key: string): Promise<T | null> {
   return value ?? null;
 }
 
-export async function setCached<T>(key: string, data: T, ttlSeconds = 60): Promise<void> {
+export async function setCached<T>(
+  key: string,
+  data: T,
+  ttlSeconds = PerformanceConfig.cache.defaultTTL,
+): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   await redis.set(key, data, { ex: ttlSeconds });

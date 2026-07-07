@@ -16,7 +16,10 @@
     "db:import-members": "dotenv -e .env -e .env.local -- tsx scripts/import-members.ts",
     "db:migrate": "dotenv -e .env -e .env.local -- prisma migrate dev",
     "db:push": "dotenv -e .env -e .env.local -- prisma db push",
-    "db:studio": "dotenv -e .env -e .env.local -- prisma studio"
+    "db:studio": "dotenv -e .env -e .env.local -- prisma studio",
+    "perf:measure": "dotenv -e .env -e .env.local -- tsx scripts/performance/measure.ts",
+    "perf:baseline": "npm run build && npm run start",
+    "autoresearch:test": "dotenv -e .env -e .env.local -- tsx scripts/performance/run.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

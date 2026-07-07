@@ -5,6 +5,7 @@ import { buildMemberWhere, type MemberListFilters } from "@/lib/services/member-
 import { createMember, findMembers } from "@/lib/repositories/member-repository";
 import { getCached, invalidateMembersListCache, membersListCacheKey, setCached } from "@/lib/redis";
 import { parseMemberPayload } from "@/lib/member-request";
+import { PerformanceConfig } from "@/src/config/performance";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
   const skip = (page - 1) * pageSize;
   const { items, total } = await findMembers({ where, skip, take: pageSize, orderBy });
   const payload = { items, total, page, pageSize };
-  await setCached(cacheKey, payload, 60);
+  await setCached(cacheKey, payload, PerformanceConfig.cache.apiResponseTTL);
   return NextResponse.json(payload);
 }
 
