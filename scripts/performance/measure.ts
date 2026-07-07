@@ -101,6 +101,15 @@ async function loadTest(
     `[LOAD TEST] ${endpoint} (${totalRequests} reqs, ${concurrency} concurrent)`
   );
 
+  // Warm up: the first hit after idle pays Neon compute wake / cold connection
+  // cost, which has nothing to do with the config under test and otherwise
+  // dominates the whole sample. Discard it before timing.
+  try {
+    await fetch(`${BASE_URL}${endpoint}`, { headers: { Cookie: cookie } });
+  } catch {
+    // ignore; the timed loop below will surface a real failure
+  }
+
   const makeRequest = async () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
