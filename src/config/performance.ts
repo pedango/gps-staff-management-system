@@ -20,17 +20,17 @@ export const PerformanceConfig = {
     enableStatementCaching: true, // ← AGENT TOGGLES THIS
 
     // Connection pool size
-    poolSize: 10, // ← AGENT TUNES THIS
+    poolSize: 20, // ← AGENT TUNES THIS
   },
 
   // ========== RESPONSE CACHING (Upstash Redis) ==========
   cache: {
     // Time-to-live for Redis cache (seconds)
     // Members list, admin data, etc.
-    defaultTTL: 300, // ← AGENT TUNES THIS (5 min default)
+    defaultTTL: 600, // ← AGENT TUNES THIS (5 min default)
 
     // API response cache TTL (shorter for frequently changing data)
-    apiResponseTTL: 60, // ← AGENT TUNES THIS (1 min default)
+    apiResponseTTL: 180, // ← AGENT TUNES THIS (1 min default)
 
     // Message cache TTL
     messageCacheTTL: 120, // ← AGENT TUNES THIS
